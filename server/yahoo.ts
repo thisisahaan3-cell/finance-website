@@ -656,7 +656,8 @@ export async function handleApi(req: Request): Promise<Response> {
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': maxAge > 0 ? `public, max-age=${maxAge}` : 'no-store',
-        ...(maxAge > 0 ? { 'Netlify-CDN-Cache-Control': `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 4}` } : {}),
+        // cache at Netlify's edge, keyed on the full query string so each symbol and range is stored separately
+        ...(maxAge > 0 ? { 'Netlify-CDN-Cache-Control': `public, s-maxage=${maxAge}, stale-while-revalidate=${maxAge * 4}`, 'Netlify-Vary': 'query' } : {}),
         'X-Content-Type-Options': 'nosniff',
       },
     });
