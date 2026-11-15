@@ -111,8 +111,9 @@ export default function Dcf() {
       const margin = opInc !== null && latestRev > 0 ? clamp(opInc / latestRev, 0.01, 0.6) : 0.15;
       const da = at('DepreciationAndAmortization') ?? at('ReconciledDepreciation');
       const capex = at('CapitalExpenditure');
-      const debt = at('TotalDebt') ?? sum.fin.totalDebt ?? 0;
-      const cash = at('CashAndCashEquivalents') ?? sum.fin.totalCash ?? 0;
+      // the provider's summary figures are the latest quarter and count short-term investments as cash
+      const debt = sum.fin.totalDebt ?? at('TotalDebt') ?? 0;
+      const cash = sum.fin.totalCash ?? at('CashAndCashEquivalents') ?? 0;
       const shares = sum.stats.sharesOutstanding ?? at('OrdinarySharesNumber');
       if (!shares) throw new Error('The share count is missing for this company. Enter the figures by hand instead.');
       const g = seriesCagr(a.items.TotalRevenue ?? [], a.dates);
@@ -190,7 +191,7 @@ export default function Dcf() {
 
   const ke = costOfEquity(st.rf, st.beta, st.erp);
   const built = attempt(() => waccCalc({ equityValue: 1 - st.debtWeight, debtValue: st.debtWeight, costOfEquity: ke, costOfDebt: st.costOfDebt, taxRate: st.taxRate })).value;
-  const money0 = (v: number) => `${sym}${num(v, 0, st.currency)}`;
+  const money0 = (v: number) => `${v < 0 ? '−' : ''}${sym}${num(Math.abs(v), 0, st.currency)}`;
 
   return (
     <Page
@@ -294,13 +295,14 @@ export default function Dcf() {
                   <BarList
                     max={1}
                     items={[
-                      { label: `Cash flows, years 1–${st.years}`, share: Math.max(0, 1 - r.terminalShare), display: pct(1 - r.terminalShare, 0), color: 'var(--s1)' },
-                      { label: 'Everything after (terminal value)', share: Math.max(0, r.terminalShare), display: pct(r.terminalShare, 0), color: 'var(--s2)' },
+                      { label: `Years 1–${st.years}`, share: Math.max(0, 1 - r.terminalShare), display: pct(1 - r.terminalShare, 0), color: 'var(--s1)' },
+                      { label: 'Terminal value', share: Math.max(0, r.terminalShare), display: pct(r.terminalShare, 0), color: 'var(--s2)' },
                     ]}
                   />
                   <p className="small muted mt-s">
+                    Terminal value is everything after year {st.years}.{' '}
                     {r.terminalShare > 0.75
-                      ? `${pct(r.terminalShare, 0)} of the value rests on what happens after year ${st.years}: the part nobody can forecast. Treat the answer as a rough range.`
+                      ? `${pct(r.terminalShare, 0)} of the value rests on it: the part nobody can forecast. Treat the answer as a rough range.`
                       : 'A healthy share of the value comes from the years you have forecast in detail.'}
                   </p>
                   <KV
