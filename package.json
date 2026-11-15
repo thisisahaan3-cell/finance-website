@@ -3,13 +3,15 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Artha — a finance workbench for learning, researching and building portfolios. India first, global second.",
+  "description": "Artha \u2014 a finance workbench for learning, researching and building portfolios. India first, global second.",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "test": "vitest run",
-    "typecheck": "tsc -b"
+    "typecheck": "tsc -b",
+    "e2e": "node tests/e2e/run.cjs",
+    "check": "tsc -b && vitest run"
   },
   "dependencies": {
     "@fontsource-variable/source-serif-4": "^5.3.1",
