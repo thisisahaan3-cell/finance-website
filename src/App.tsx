@@ -1,5 +1,5 @@
 import { Component, lazy, Suspense, type ReactNode } from 'react';
-import { Link, Route, Routes } from 'react-router-dom';
+import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
 import { Loading } from './components/ui';
 
@@ -63,9 +63,10 @@ function NotFound() {
 }
 
 export default function App() {
+  const { pathname } = useLocation();
   return (
     <Layout>
-      <Boundary>
+      <Boundary key={pathname}>
         <Suspense fallback={<Loading height={200} />}>
           <Routes>
             <Route path="/" element={<Home />} />

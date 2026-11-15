@@ -53,7 +53,9 @@ function LessonView({ id }: { id: string }) {
   const done = useStore((s) => s.lessonsDone);
   const idx = LESSONS.findIndex((l) => l.id === id);
   const lesson = LESSONS[idx];
-  useEffect(() => window.scrollTo(0, 0), [id]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [id]);
   if (!lesson) {
     return (
       <Page title="Lesson not found" crumb="Learn">
