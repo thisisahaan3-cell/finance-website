@@ -625,42 +625,71 @@ async function opScreen(q: URLSearchParams) {
     operands.push({ operator: 'eq', operands: ['industry', industry] });
   }
   const filters: Json[] = Array.isArray(spec.filters) ? spec.filters.slice(0, 20) : [];
-  // Market value: for Indian listings the provider's intraday field has gaps but its last-close field is complete.
-  // For US and UK listings the last-close field is in each company's home currency, so the intraday field is used.
-  const capField = market.region === 'in' ? 'lastclosemarketcap.lasttwelvemonths' : 'intradaymarketcap';
-  const fieldOf = (key: unknown): string | undefined => (key === 'marketCap' ? capField : SCREEN_FIELDS[String(key)]);
+  // Market value. The provider keeps two size fields and, for Indian listings, each one is missing for a
+  // changing handful of large companies. Filters therefore accept a match on either field, and a listing
+  // sorted by size merges the two orderings. For US and UK listings the last-close field is in each
+  // company's home currency, so only the intraday field is used there.
+  const CAP_A = 'intradaymarketcap';
+  const CAP_B = 'lastclosemarketcap.lasttwelvemonths';
+  const india = market.region === 'in';
+  const condition = (field: string, min: number | null, max: number | null): Json | null =>
+    min !== null && max !== null ? { operator: 'btwn', operands: [field, min, max] } : min !== null ? { operator: 'gt', operands: [field, min] } : max !== null ? { operator: 'lt', operands: [field, max] } : null;
   for (const f of filters) {
-    const field = fieldOf(f.field);
-    if (!field) throw new ApiError(400, `Unknown filter: ${String(f.field).slice(0, 40)}`);
+    const key = String(f.field);
+    const field = SCREEN_FIELDS[key];
+    if (!field) throw new ApiError(400, `Unknown filter: ${key.slice(0, 40)}`);
     const min = num(f.min);
     const max = num(f.max);
-    if (min !== null && max !== null) {
-      if (min > max) throw new ApiError(400, 'A filter has its minimum above its maximum.');
-      operands.push({ operator: 'btwn', operands: [field, min, max] });
-    } else if (min !== null) operands.push({ operator: 'gt', operands: [field, min] });
-    else if (max !== null) operands.push({ operator: 'lt', operands: [field, max] });
+    if (min !== null && max !== null && min > max) throw new ApiError(400, 'A filter has its minimum above its maximum.');
+    const one = condition(field, min, max);
+    if (!one) continue;
+    operands.push(key === 'marketCap' && india ? { operator: 'or', operands: [one, condition(CAP_B, min, max)] } : one);
   }
-  const sortField = fieldOf(spec.sort) ?? capField;
+  const sortKey = spec.sort === undefined || spec.sort === null ? 'marketCap' : String(spec.sort);
+  if (!SCREEN_FIELDS[sortKey]) throw new ApiError(400, 'Unknown sort field.');
   const size = Math.min(Math.max(Number(spec.size) || 50, 1), 100);
   const offset = Math.min(Math.max(Number(spec.offset) || 0, 0), 5000);
-  const json = await yahoo(`/v1/finance/screener?lang=en-US&region=US&formatted=false&corsDomain=finance.yahoo.com`, {
-    auth: true,
-    body: {
-      offset,
-      size,
-      sortField,
-      sortType: spec.dir === 'asc' ? 'ASC' : 'DESC',
-      quoteType: 'EQUITY',
-      query: { operator: 'and', operands },
-      userId: '',
-      userIdType: 'guid',
-    },
-  });
-  const res = json?.finance?.result?.[0];
-  if (!res) throw new ApiError(502, json?.finance?.error?.description ?? 'The screener returned no result.');
-  const quotes: Json[] = (res.quotes ?? []).map(normaliseQuote);
-  await fillMarketCaps(quotes);
-  return { maxAge: 600, body: { total: num(res.total) ?? 0, offset, quotes, asOf: Date.now() } };
+  const asc = spec.dir === 'asc';
+  const run = async (sortField: string, from: number, count: number): Promise<{ total: number; quotes: Json[] }> => {
+    const json = await yahoo(`/v1/finance/screener?lang=en-US&region=US&formatted=false&corsDomain=finance.yahoo.com`, {
+      auth: true,
+      body: { offset: from, size: count, sortField, sortType: asc ? 'ASC' : 'DESC', quoteType: 'EQUITY', query: { operator: 'and', operands }, userId: '', userIdType: 'guid' },
+    });
+    const res = json?.finance?.result?.[0];
+    if (!res) throw new ApiError(502, json?.finance?.error?.description ?? 'The screener returned no result.');
+    return { total: num(res.total) ?? 0, quotes: (res.quotes ?? []).map(normaliseQuote) };
+  };
+
+  let total: number;
+  let quotes: Json[];
+  if (india && sortKey === 'marketCap') {
+    // Exact for the first pages (both orderings fetched from the top); deeper pages use a window with a margin.
+    const exact = offset + size + 30 <= 250;
+    const start = exact ? 0 : Math.max(0, offset - 30);
+    const span = exact ? offset + size + 30 : Math.min(250, size + 60);
+    const [a, b] = await Promise.all([run(CAP_A, start, span), run(CAP_B, start, span)]);
+    const merged = new Map<string, Json>();
+    for (const q of [...a.quotes, ...b.quotes]) if (!merged.has(q.symbol)) merged.set(q.symbol, q);
+    const all = [...merged.values()];
+    await fillMarketCaps(all, 25);
+    const cap = (q: Json) => num(q.marketCap);
+    all.sort((x, y) => {
+      const cx = cap(x);
+      const cy = cap(y);
+      if (cx === null && cy === null) return 0;
+      if (cx === null) return 1;
+      if (cy === null) return -1;
+      return asc ? cx - cy : cy - cx;
+    });
+    quotes = all.slice(offset - start, offset - start + size);
+    total = Math.max(a.total, b.total);
+  } else {
+    const res = await run(SCREEN_FIELDS[sortKey], offset, size);
+    quotes = res.quotes;
+    total = res.total;
+    await fillMarketCaps(quotes, 15);
+  }
+  return { maxAge: 600, body: { total, offset, quotes, asOf: Date.now() } };
 }
 
 /* ---------- router ---------- */
