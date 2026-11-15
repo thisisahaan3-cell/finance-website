@@ -47,13 +47,17 @@ export function align(list: Daily[], field: 'adj' | 'close' = 'adj'): Aligned {
   const live = list.filter((s) => s.dates.length);
   if (!live.length || live.length !== list.length) return { dates: [], matrix: [], limitedBy: null };
   let start = '';
+  let earliest = '9999';
   let limitedBy: string | null = null;
   for (const s of live) {
+    if (s.dates[0] < earliest) earliest = s.dates[0];
     if (s.dates[0] > start) {
       start = s.dates[0];
       limitedBy = s.symbol;
     }
   }
+  // only call a series "limiting" when it starts meaningfully later than the rest
+  if (Date.parse(start) - Date.parse(earliest) < 20 * 86_400_000) limitedBy = null;
   const all = new Set<string>();
   for (const s of live) for (const d of s.dates) if (d >= start) all.add(d);
   const dates = [...all].sort();

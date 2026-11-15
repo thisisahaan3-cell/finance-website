@@ -65,10 +65,18 @@ export async function ensureClassified(symbols: string[]): Promise<void> {
   }
 }
 
+/** Exchange-traded and index funds: the provider often labels Indian ETFs as plain equities, so the name is checked too. */
+export const isFund = (symbol: string): boolean => {
+  const m = getState().symbolMeta[symbol];
+  if (!m) return false;
+  if (m.type === 'ETF' || m.type === 'MUTUALFUND') return true;
+  return !m.sector && /\b(ETF|BEES|FUND|INDEX)\b|BeES/i.test(m.name ?? '');
+};
+
 export const sectorOf = (symbol: string): string => {
   const m = getState().symbolMeta[symbol];
   if (m?.sector) return m.sector;
-  if (m?.type === 'ETF') return 'ETF / fund';
+  if (isFund(symbol)) return 'ETF / fund';
   if (m?.type && m.type !== 'EQUITY') return 'Other';
   return 'Unclassified';
 };

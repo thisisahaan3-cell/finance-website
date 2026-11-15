@@ -64,12 +64,15 @@ function xTicks(x: (string | number)[], maxTicks: number, fmt?: (v: string | num
   return out;
 }
 
-const defaultY = (v: number) => {
-  const a = Math.abs(v);
-  if (a >= 1e7) return (v / 1e7).toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' Cr';
-  if (a >= 1e5) return (v / 1e5).toLocaleString('en-IN', { maximumFractionDigits: 1 }) + ' L';
-  return v.toLocaleString('en-IN', { maximumFractionDigits: a < 10 ? 2 : a < 1000 ? 1 : 0 });
-};
+/** Default axis format: one unit for the whole axis (crore, lakh or plain), chosen from its largest tick. */
+function axisFormat(ticks: number[]): (v: number) => string {
+  const top = Math.max(...ticks.map(Math.abs), 0);
+  const step = ticks.length > 1 ? Math.abs(ticks[1] - ticks[0]) : top;
+  const dec = (unit: number) => (step / unit >= 1 ? 0 : step / unit >= 0.1 ? 1 : 2);
+  if (top >= 1e7) return (v) => (v / 1e7).toLocaleString('en-IN', { minimumFractionDigits: dec(1e7), maximumFractionDigits: dec(1e7) }) + ' Cr';
+  if (top >= 1e5) return (v) => (v / 1e5).toLocaleString('en-IN', { minimumFractionDigits: dec(1e5), maximumFractionDigits: dec(1e5) }) + ' L';
+  return (v) => v.toLocaleString('en-IN', { maximumFractionDigits: step >= 1 ? 0 : step >= 0.1 ? 1 : step >= 0.01 ? 2 : 4 });
+}
 
 export function Legend({ items }: { items: { name: string; color: string; line?: boolean }[] }) {
   return (
@@ -122,7 +125,6 @@ export function LineChart(p: LineChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const height = p.height ?? 280;
-  const yf = p.yFormat ?? defaultY;
   const n = p.x.length;
   const pad = { l: 8, r: 54, t: 8, b: 22 };
   const w = Math.max(10, width - pad.l - pad.r);
@@ -160,6 +162,7 @@ export function LineChart(p: LineChartProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.series, p.bands, p.zeroLine, p.log, p.yMin, p.yMax, h]);
 
+  const yf = p.yFormat ?? axisFormat(scale?.ticks ?? [0]);
   const xPos = (i: number) => pad.l + (n <= 1 ? w / 2 : (i / (n - 1)) * w);
   const stride = Math.max(1, Math.ceil(n / 900));
 
@@ -340,13 +343,13 @@ export function BarChart(p: BarChartProps) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
   const height = p.height ?? 240;
-  const yf = p.yFormat ?? defaultY;
   const pad = { l: 8, r: 54, t: 10, b: 22 };
   const w = Math.max(10, width - pad.l - pad.r);
   const h = height - pad.t - pad.b;
   const n = p.data.length;
   const values = p.data.map((d) => d.value).filter(Number.isFinite);
   const ticks = niceTicks(Math.min(0, ...values), Math.max(0, ...values), Math.max(3, Math.floor(h / 48)));
+  const yf = p.yFormat ?? axisFormat(ticks);
   const t0 = ticks[0];
   const t1 = ticks[ticks.length - 1];
   const y = (v: number) => pad.t + h - ((v - t0) / (t1 - t0 || 1)) * h;
@@ -411,13 +414,13 @@ export function BarChart(p: BarChartProps) {
 export function StackedColumns({ categories, series, height = 240, yFormat }: { categories: string[]; series: { name: string; values: number[]; color?: string }[]; height?: number; yFormat?: (v: number) => string }) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [hover, setHover] = useState<number | null>(null);
-  const yf = yFormat ?? defaultY;
   const pad = { l: 8, r: 54, t: 10, b: 22 };
   const w = Math.max(10, width - pad.l - pad.r);
   const h = height - pad.t - pad.b;
   const n = categories.length;
   const totals = categories.map((_, i) => series.reduce((s, x) => s + Math.max(0, x.values[i] ?? 0), 0));
   const ticks = niceTicks(0, Math.max(1, ...totals), Math.max(3, Math.floor(h / 48)));
+  const yf = yFormat ?? axisFormat(ticks);
   const t1 = ticks[ticks.length - 1];
   const y = (v: number) => pad.t + h - (v / (t1 || 1)) * h;
   const band = n ? w / n : w;
