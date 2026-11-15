@@ -15,6 +15,19 @@ const Optimizer = lazy(() => import('./pages/Optimizer'));
 const Backtest = lazy(() => import('./pages/Backtest'));
 const RiskLab = lazy(() => import('./pages/RiskLab'));
 const Simulate = lazy(() => import('./pages/Simulate'));
+const Dcf = lazy(() => import('./pages/Dcf'));
+const Models = lazy(() => import('./pages/Models'));
+const Corporate = lazy(() => import('./pages/Corporate'));
+const Invest = lazy(() => import('./pages/Invest'));
+const Loan = lazy(() => import('./pages/Loan'));
+const Tax = lazy(() => import('./pages/Tax'));
+const Retire = lazy(() => import('./pages/Retire'));
+const FixedIncome = lazy(() => import('./pages/FixedIncome'));
+const NetWorth = lazy(() => import('./pages/NetWorth'));
+const Learn = lazy(() => import('./pages/Learn'));
+const Glossary = lazy(() => import('./pages/Glossary'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Home = lazy(() => import('./pages/Home'));
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -55,6 +68,20 @@ export default function App() {
       <Boundary>
         <Suspense fallback={<Loading height={200} />}>
           <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/valuation/dcf" element={<Dcf />} />
+            <Route path="/valuation/models" element={<Models />} />
+            <Route path="/corporate" element={<Corporate />} />
+            <Route path="/calc/invest" element={<Invest />} />
+            <Route path="/calc/loan" element={<Loan />} />
+            <Route path="/calc/tax" element={<Tax />} />
+            <Route path="/calc/retire" element={<Retire />} />
+            <Route path="/calc/fixed-income" element={<FixedIncome />} />
+            <Route path="/networth" element={<NetWorth />} />
+            <Route path="/learn" element={<Learn />} />
+            <Route path="/learn/:id" element={<Learn />} />
+            <Route path="/glossary" element={<Glossary />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="/markets" element={<Markets />} />
             <Route path="/stock" element={<Stock />} />
             <Route path="/stock/:symbol" element={<Stock />} />
