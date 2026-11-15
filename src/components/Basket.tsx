@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { POPULAR_GLOBAL, POPULAR_INDIA, shortSymbol } from '../lib/data/symbols';
+import { getQuotes } from '../lib/data/api';
 import { num } from '../lib/format';
 import { loadLive } from '../lib/portfolioData';
 import { getState, rememberMeta, useSaved, useStore } from '../lib/store';
@@ -73,6 +74,22 @@ export function BasketPicker({ items, onChange, onLoadPortfolio, seeding, seedEr
   const meta = useStore((s) => s.symbolMeta);
   const portfolios = useStore((s) => s.portfolios);
   const [more, setMore] = useState(false);
+  // look up names for symbols we have not seen before (for example a tool's starting basket)
+  const unnamed = items.filter((it) => !meta[it.symbol]?.name).map((it) => it.symbol).join(',');
+  useEffect(() => {
+    if (!unnamed) return;
+    let live = true;
+    getQuotes(unnamed.split(',')).then(
+      ({ quotes }) => {
+        if (!live) return;
+        for (const q of Object.values(quotes)) rememberMeta(q.symbol, { name: q.longName ?? q.shortName ?? q.symbol, currency: q.currency ?? null, type: q.quoteType ?? null });
+      },
+      () => undefined,
+    );
+    return () => {
+      live = false;
+    };
+  }, [unnamed]);
   const total = items.reduce((s, it) => s + (it.weight || 0), 0);
   const has = (symbol: string) => items.some((it) => it.symbol === symbol);
   const add = (symbol: string, name?: string) => {

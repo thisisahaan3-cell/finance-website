@@ -129,13 +129,17 @@ export function Layout({ children }: { children: ReactNode }) {
   const theme = useStore((s) => s.settings.theme);
   const location = useLocation();
 
+  const [isDark, setIsDark] = useState(false);
   useEffect(() => {
-    applyTheme(theme);
+    const apply = () => {
+      applyTheme(theme);
+      setIsDark(document.documentElement.dataset.theme === 'dark');
+    };
+    apply();
     if (theme !== 'system') return;
     const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const on = () => applyTheme('system');
-    mq.addEventListener('change', on);
-    return () => mq.removeEventListener('change', on);
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
   }, [theme]);
 
   useEffect(() => {
@@ -156,7 +160,6 @@ export function Layout({ children }: { children: ReactNode }) {
     return () => document.removeEventListener('keydown', onKey);
   }, []);
 
-  const isDark = typeof document !== 'undefined' && document.documentElement.dataset.theme === 'dark';
 
   return (
     <div className={'app' + (navOpen ? ' nav-open' : '')}>
@@ -196,7 +199,7 @@ export function Layout({ children }: { children: ReactNode }) {
           </button>
           <div className="topbar-right">
             <button className="btn sm" onClick={() => setSettings({ theme: isDark ? 'light' : 'dark' })} aria-label="Switch between light and dark theme">
-              {isDark ? 'Light' : 'Dark'}
+              {isDark ? 'Light mode' : 'Dark mode'}
             </button>
           </div>
         </div>

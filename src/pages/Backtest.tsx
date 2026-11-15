@@ -138,6 +138,7 @@ export default function Backtest() {
                   series={[{ name: 'Your strategy', values: r.dd }, ...(r.benchDd ? [{ name: benchName, values: r.benchDd, color: 'var(--text-3)' }] : [])]}
                   yFormat={(v) => pct(v, 0)}
                   area
+                  areaBase={0}
                   yMax={0}
                   height={200}
                 />

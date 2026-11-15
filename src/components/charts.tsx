@@ -113,6 +113,8 @@ interface LineChartProps {
   xFormat?: (v: string | number) => string;
   /** soft fill under the first series */
   area?: boolean;
+  /** fill between the line and this value instead of the bottom of the plot (0 for drawdowns) */
+  areaBase?: number;
   zeroLine?: boolean;
   log?: boolean;
   yMin?: number;
@@ -224,7 +226,7 @@ export function LineChart(p: LineChartProps) {
               last = i;
             }
           if (first < 0) return '';
-          const base = pad.t + h;
+          const base = p.areaBase !== undefined ? scale.y(p.areaBase) : pad.t + h;
           return `${paths[0]}L${xPos(last).toFixed(1)},${base}L${xPos(first).toFixed(1)},${base}Z`;
         })()
       : '';

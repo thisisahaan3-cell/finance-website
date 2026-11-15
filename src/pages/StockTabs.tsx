@@ -444,7 +444,7 @@ export function ReturnsTab({ symbol, benchmark }: { symbol: string; benchmark: s
           <BarChart data={(calc.full?.yearly ?? []).slice(-15).map((y) => ({ label: String(y.year).slice(2) + (y.partial ? '*' : ''), value: y.ret, note: `${y.year}${y.partial ? ' (part year)' : ''}` }))} signed yFormat={(v) => pct(v, 0)} height={220} />
         </Card>
         <Card title="Falls from the previous peak">
-          <LineChart x={calc.dates} series={[{ name: 'Drawdown', values: calc.dd }]} yFormat={(v) => pct(v, 0)} area yMax={0} height={220} hideLegend />
+          <LineChart x={calc.dates} series={[{ name: 'Drawdown', values: calc.dd }]} yFormat={(v) => pct(v, 0)} area areaBase={0} yMax={0} height={220} hideLegend />
         </Card>
       </div>
     </div>

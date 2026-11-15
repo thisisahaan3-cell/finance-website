@@ -176,7 +176,7 @@ export default function RiskLab() {
 
               <div className="grid cols-2">
                 <Card title="Falls from the previous peak">
-                  <LineChart x={stats.dates} series={[{ name: 'Portfolio', values: drawdown(stats.index).series }, ...(stats.benchIndex ? [{ name: benchName, values: drawdown(stats.benchIndex).series, color: 'var(--text-3)' }] : [])]} yFormat={(v) => pct(v, 0)} area yMax={0} height={220} />
+                  <LineChart x={stats.dates} series={[{ name: 'Portfolio', values: drawdown(stats.index).series }, ...(stats.benchIndex ? [{ name: benchName, values: drawdown(stats.benchIndex).series, color: 'var(--text-3)' }] : [])]} yFormat={(v) => pct(v, 0)} area areaBase={0} yMax={0} height={220} />
                 </Card>
                 <Card title="Daily returns" sub="how often each size of move happened">
                   <BarChart dense data={hist.map((h) => ({ label: pct((h.from + h.to) / 2, 1), value: h.count, note: 'Days', color: (h.from + h.to) / 2 < 0 ? 'var(--neg)' : 'var(--pos)' }))} yFormat={(v) => num(v, 0)} height={220} />
