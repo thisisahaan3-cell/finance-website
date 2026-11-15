@@ -146,7 +146,6 @@ function symbolsOf(v: string | null, max: number): string[] {
   return [...new Set(list)];
 }
 
-const r4 = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : null);
 const num = (x: unknown): number | null => (typeof x === 'number' && Number.isFinite(x) ? x : null);
 const raw = (x: any): number | null => (x && typeof x === 'object' ? num(x.raw) : num(x));
 
@@ -378,8 +377,9 @@ async function opFundamentals(q: URLSearchParams) {
   const rows = await Promise.all(
     symbols.map(async (symbol) => {
       try {
-        const res = await fetchSummary(symbol, 'assetProfile,financialData,defaultKeyStatistics,summaryDetail');
+        const res = await fetchSummary(symbol, 'price,assetProfile,financialData,defaultKeyStatistics,summaryDetail');
         const fin = flatten(res.financialData);
+        const price = flatten(res.price);
         const stats = flatten(res.defaultKeyStatistics);
         const detail = flatten(res.summaryDetail);
         const profile = flatten(res.assetProfile);
@@ -406,7 +406,9 @@ async function opFundamentals(q: URLSearchParams) {
           beta: num(detail.beta) ?? num(stats.beta),
           payoutRatio: num(detail.payoutRatio),
           dividendYield: num(detail.dividendYield),
-          marketCap: num(detail.marketCap),
+          marketCap: num(price.marketCap) ?? num(detail.marketCap),
+          name: price.longName ?? price.shortName ?? null,
+          currency: price.currency ?? null,
           trailingPE: num(detail.trailingPE),
           priceToBook: num(stats.priceToBook),
           priceToSales: num(detail.priceToSalesTrailing12Months),
