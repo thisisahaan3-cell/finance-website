@@ -558,6 +558,11 @@ async function opScreen(q: URLSearchParams) {
   const sectors: string[] = Array.isArray(spec.sectors) ? spec.sectors.filter((s: unknown) => SECTORS.includes(String(s))) : [];
   if (sectors.length === 1) operands.push({ operator: 'eq', operands: ['sector', sectors[0]] });
   else if (sectors.length > 1) operands.push({ operator: 'or', operands: sectors.map((s) => ({ operator: 'eq', operands: ['sector', s] })) });
+  const industry = typeof spec.industry === 'string' ? spec.industry.trim() : '';
+  if (industry) {
+    if (!/^[\w &—\-,.'/()]{2,70}$/.test(industry)) throw new ApiError(400, 'Invalid industry name.');
+    operands.push({ operator: 'eq', operands: ['industry', industry] });
+  }
   const filters: Json[] = Array.isArray(spec.filters) ? spec.filters.slice(0, 20) : [];
   for (const f of filters) {
     const field = SCREEN_FIELDS[String(f.field)];

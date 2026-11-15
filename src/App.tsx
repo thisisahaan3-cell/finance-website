@@ -5,6 +5,16 @@ import { Loading } from './components/ui';
 
 const PortfolioList = lazy(() => import('./pages/portfolio/PortfolioList'));
 const Studio = lazy(() => import('./pages/portfolio/Studio'));
+const Markets = lazy(() => import('./pages/Markets'));
+const Stock = lazy(() => import('./pages/Stock'));
+const Screener = lazy(() => import('./pages/Screener'));
+const Compare = lazy(() => import('./pages/Compare'));
+const Watchlist = lazy(() => import('./pages/Watchlist'));
+const Currency = lazy(() => import('./pages/Currency'));
+const Optimizer = lazy(() => import('./pages/Optimizer'));
+const Backtest = lazy(() => import('./pages/Backtest'));
+const RiskLab = lazy(() => import('./pages/RiskLab'));
+const Simulate = lazy(() => import('./pages/Simulate'));
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
@@ -45,6 +55,17 @@ export default function App() {
       <Boundary>
         <Suspense fallback={<Loading height={200} />}>
           <Routes>
+            <Route path="/markets" element={<Markets />} />
+            <Route path="/stock" element={<Stock />} />
+            <Route path="/stock/:symbol" element={<Stock />} />
+            <Route path="/screener" element={<Screener />} />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/watchlist" element={<Watchlist />} />
+            <Route path="/currency" element={<Currency />} />
+            <Route path="/optimizer" element={<Optimizer />} />
+            <Route path="/backtest" element={<Backtest />} />
+            <Route path="/risk" element={<RiskLab />} />
+            <Route path="/simulate" element={<Simulate />} />
             <Route path="/portfolio" element={<PortfolioList />} />
             <Route path="/portfolio/:id" element={<Studio />} />
             <Route path="*" element={<NotFound />} />

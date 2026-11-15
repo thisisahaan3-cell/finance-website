@@ -418,3 +418,75 @@ describe('business finance', () => {
     expect(corp.writtenDownValue(100_000, rate, 5)[4].closing).toBeCloseTo(10_000, 6);
   });
 });
+
+import * as ratios from '../src/lib/finance/ratios';
+
+describe('ratio analysis', () => {
+  const table: ratios.StatementTable = {
+    dates: ['2024-03-31', '2025-03-31'],
+    items: {
+      TotalRevenue: [1000, 1200],
+      GrossProfit: [400, 504],
+      OperatingIncome: [200, 264],
+      EBIT: [210, 270],
+      EBITDA: [250, 320],
+      NetIncome: [120, 168],
+      DilutedEPS: [12, 16.8],
+      InterestExpense: [30, 27],
+      TotalAssets: [2000, 2200],
+      CurrentAssets: [600, 700],
+      CurrentLiabilities: [400, 350],
+      StockholdersEquity: [800, 900],
+      TotalDebt: [500, 450],
+      OperatingCashFlow: [150, 190],
+      CapitalExpenditure: [-60, -70],
+      CashDividendsPaid: [-36, -42],
+    },
+  };
+
+  it('computes ratios that can be checked by hand', () => {
+    const r = ratios.yearlyRatios(table);
+    expect(r).toHaveLength(2);
+    const y = r[1];
+    expect(y.revenueGrowth).toBeCloseTo(0.2, 12);
+    expect(y.profitGrowth).toBeCloseTo(0.4, 12);
+    expect(y.grossMargin).toBeCloseTo(0.42, 12);
+    expect(y.operatingMargin).toBeCloseTo(0.22, 12);
+    expect(y.netMargin).toBeCloseTo(0.14, 12);
+    expect(y.roe).toBeCloseTo(168 / 900, 12);
+    expect(y.roce).toBeCloseTo(270 / (2200 - 350), 12);
+    expect(y.roa).toBeCloseTo(168 / 2200, 12);
+    expect(y.debtToEquity).toBeCloseTo(0.5, 12);
+    expect(y.interestCover).toBeCloseTo(10, 12);
+    expect(y.currentRatio).toBeCloseTo(2, 12);
+    expect(y.fcf).toBe(120); // derived: operating cash flow + capex
+    expect(y.fcfMargin).toBeCloseTo(0.1, 12);
+    expect(y.cashConversion).toBeCloseTo(190 / 168, 12);
+    expect(y.payout).toBeCloseTo(0.25, 12);
+    expect(r[0].revenueGrowth).toBeNull();
+    // DuPont identity
+    expect(y.netMargin! * y.assetTurnover! * y.equityMultiplier!).toBeCloseTo(y.roe!, 12);
+  });
+
+  it('never divides by zero or reports growth from a negative base', () => {
+    const r = ratios.yearlyRatios({ dates: ['2024-03-31', '2025-03-31'], items: { TotalRevenue: [0, 100], NetIncome: [-50, 20], StockholdersEquity: [-10, 0], TotalAssets: [0, 0] } });
+    expect(r[1].revenueGrowth).toBeNull();
+    expect(r[1].profitGrowth).toBeNull();
+    expect(r[0].roe).toBeNull();
+    expect(r[1].roe).toBeNull();
+    expect(r[1].roa).toBeNull();
+    expect(r[0].netMargin).toBeNull();
+    expect(ratios.growth(110, 100)).toBeCloseTo(0.1, 12);
+  });
+
+  it('series CAGR and quality checklist', () => {
+    const c = ratios.seriesCagr([null, 100, 121, 133.1], ['2022-03-31', '2023-03-31', '2024-03-31', '2025-03-31'])!;
+    expect(c.rate).toBeCloseTo(0.1538, 3);
+    expect(ratios.seriesCagr([100, null], ['2024-03-31', '2025-03-31'])).toBeNull();
+    const checks = ratios.qualityChecks(ratios.yearlyRatios(table));
+    expect(checks.find((x) => x.label === 'Profitable')!.pass).toBe(true);
+    expect(checks.find((x) => x.label === 'Margins improving')!.pass).toBe(true);
+    expect(checks.find((x) => x.label === 'Debt falling relative to equity')!.pass).toBe(true);
+    expect(checks.find((x) => x.label === 'Return on equity above 15%')!.pass).toBe(true);
+  });
+});

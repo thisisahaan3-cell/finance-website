@@ -150,6 +150,7 @@ export interface Fundamentals {
 export interface ScreenSpec {
   market: 'NSE' | 'BSE' | 'US' | 'UK';
   sectors?: string[];
+  industry?: string;
   filters?: { field: string; min?: number | null; max?: number | null }[];
   sort?: string;
   dir?: 'asc' | 'desc';
