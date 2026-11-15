@@ -112,7 +112,9 @@ export default function Optimizer() {
   const solved = useMemo(() => {
     if (!model || 'error' in model) return null;
     const { b, n, mu, cov } = model;
-    const cons: Constraints = { max: new Array(n).fill(inp.maxWeight), min: new Array(n).fill(inp.minWeight) };
+    // a cap below 1/n can never add up to 100%, so it is raised to the smallest workable value
+    const cap = Math.max(inp.maxWeight, Math.ceil((1 / n) * 100) / 100);
+    const cons: Constraints = { max: new Array(n).fill(cap), min: new Array(n).fill(Math.min(inp.minWeight, 1 / n)) };
     if (inp.sectorCap < 1) {
       const bySector = new Map<string, number[]>();
       b.symbols.forEach((s, i) => bySector.set(sectorOf(s), [...(bySector.get(sectorOf(s)) ?? []), i]));
@@ -239,6 +241,11 @@ export default function Optimizer() {
           {data.data?.failed.length ? <Note kind="warn">No usable history for {data.data.failed.map((f) => f.symbol).join(', ')}; left out.</Note> : null}
           {model && 'error' in model && <Note kind="err">{model.error}</Note>}
           {solved?.error && <Note kind="err">{solved.error}</Note>}
+          {ok && inp.maxWeight * ok.n < 1 - 1e-9 && (
+            <Note>
+              With {ok.n} stocks, a cap of {pct(inp.maxWeight, 0)} each cannot add up to 100%, so the cap used is {pct(Math.ceil((1 / ok.n) * 100) / 100, 0)}. Add more stocks to make your cap workable.
+            </Note>
+          )}
           {ok && res && (
             <>
               <Stats>

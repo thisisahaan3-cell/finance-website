@@ -54,7 +54,12 @@ function Palette({ onClose }: { onClose: () => void }) {
     const needle = text.trim().toLowerCase();
     const words = needle.split(/\s+/).filter(Boolean);
     const hit = (hay: string) => words.every((w) => hay.includes(w));
-    const tools = TOOLS.filter((t) => !needle || hit((t.title + ' ' + t.keywords + ' ' + t.blurb).toLowerCase())).map((t) => ({ group: 'Tools', title: t.title, sub: t.group, to: t.path }));
+    // a match in the title outranks a match in the keywords, which outranks one in the description
+    const rank = (t: (typeof TOOLS)[number]) => (hit(t.title.toLowerCase()) ? 0 : hit((t.title + ' ' + t.keywords).toLowerCase()) ? 1 : 2);
+    const tools = TOOLS.filter((t) => !needle || hit((t.title + ' ' + t.keywords + ' ' + t.blurb).toLowerCase()))
+      .map((t, i) => ({ t, i }))
+      .sort((a, b) => (needle ? rank(a.t) - rank(b.t) : 0) || a.i - b.i)
+      .map(({ t }) => ({ group: 'Tools', title: t.title, sub: t.group, to: t.path }));
     if (!needle) return tools;
     const out: Option[] = [...tools.slice(0, 6)];
     for (const s of stocks) out.push({ group: 'Stocks and indices', title: `${s.symbol} — ${s.name}`, sub: s.exchange, to: `/stock/${encodeURIComponent(s.symbol)}` });

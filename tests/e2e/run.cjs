@@ -135,7 +135,7 @@ const expect = (cond, msg) => {
 
   await test('invalid input shows an error instead of a result', async () => {
     await go('/valuation/dcf');
-    await page.getByLabel('Growth forever (terminal growth)').fill('20');
+    await page.getByLabel('Discount rate (WACC)').fill('4');
     await page.waitForTimeout(300);
     expect((await text()).includes('Terminal growth must be below the discount rate'), 'expected a validation message');
     expect(!(await text()).includes('Estimated value per share'), 'a result was shown despite invalid input');

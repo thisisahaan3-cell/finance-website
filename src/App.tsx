@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, type ReactNode } from 'react';
 import { Link, Route, Routes, useLocation } from 'react-router-dom';
 import { Layout } from './components/Layout';
+import { Page } from './components/Page';
 import { Loading } from './components/ui';
 
 const PortfolioList = lazy(() => import('./pages/portfolio/PortfolioList'));
@@ -52,13 +53,14 @@ class Boundary extends Component<{ children: ReactNode }, { error: Error | null 
 
 function NotFound() {
   return (
-    <div className="empty">
-      <h3>Page not found</h3>
-      <p>That address does not match any tool.</p>
-      <Link className="btn primary" to="/">
-        Go to the home page
-      </Link>
-    </div>
+    <Page title="Page not found" crumb="Artha">
+      <div className="empty">
+        <p>That address does not match any tool.</p>
+        <Link className="btn primary" to="/">
+          Go to the home page
+        </Link>
+      </div>
+    </Page>
   );
 }
 
