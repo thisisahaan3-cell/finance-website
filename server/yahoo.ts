@@ -84,7 +84,9 @@ async function getSession(force = false) {
 
 async function yahoo(path: string, opts: { auth?: boolean; body?: unknown } = {}): Promise<Json> {
   let lastError: ApiError | null = null;
-  for (let attempt = 0; attempt < 2; attempt++) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    // the third try is only for transient trouble (rate limits, timeouts, server errors), after a short pause
+    if (attempt === 2) await new Promise((r) => setTimeout(r, 350));
     const host = HOSTS[attempt % HOSTS.length];
     let url = host + path;
     const headers: Record<string, string> = {};
@@ -99,7 +101,13 @@ async function yahoo(path: string, opts: { auth?: boolean; body?: unknown } = {}
       init.body = JSON.stringify(opts.body);
       headers['Content-Type'] = 'application/json';
     }
-    const res = await http(url, init);
+    let res: Response;
+    try {
+      res = await http(url, init);
+    } catch (e) {
+      lastError = e instanceof ApiError ? e : new ApiError(502, 'Could not reach the data provider. Try again in a moment.');
+      continue;
+    }
     const text = await res.text();
     let json: Json | null = null;
     try {
@@ -281,14 +289,32 @@ function normaliseQuote(qt: Json): Json {
   return out;
 }
 
+/**
+ * The provider sometimes sends no market value for a company. Where that happens, work it out as
+ * latest reported shares × price (flagged `marketCapDerived`), for at most `limit` quotes per request.
+ */
+async function fillMarketCaps(quotes: Json[], limit = 12): Promise<void> {
+  const missing = quotes.filter((q) => q.quoteType === 'EQUITY' && !num(q.marketCap) && num(q.regularMarketPrice)).slice(0, limit);
+  await Promise.all(
+    missing.map(async (q) => {
+      const shares = num(q.sharesOutstanding) ?? (await latestShares(q.symbol));
+      if (shares) {
+        q.marketCap = shares * q.regularMarketPrice;
+        q.marketCapDerived = true;
+      }
+    }),
+  );
+}
+
 async function opQuote(q: URLSearchParams) {
   const symbols = symbolsOf(q.get('symbols'), 120);
   const json = await yahoo(
     `/v7/finance/quote?symbols=${symbols.map(encodeURIComponent).join(',')}&fields=${QUOTE_FIELDS.join(',')}`,
     { auth: true },
   );
-  const list: Json[] = json?.quoteResponse?.result ?? [];
-  return { maxAge: 60, body: { quotes: list.map(normaliseQuote), asOf: Date.now() } };
+  const quotes: Json[] = (json?.quoteResponse?.result ?? []).map(normaliseQuote);
+  await fillMarketCaps(quotes);
+  return { maxAge: 60, body: { quotes, asOf: Date.now() } };
 }
 
 async function opSearch(q: URLSearchParams) {
@@ -534,7 +560,7 @@ async function opFinancials(q: URLSearchParams) {
 /* ---------- screener ---------- */
 
 export const SCREEN_FIELDS: Record<string, string> = {
-  marketCap: 'intradaymarketcap',
+  marketCap: 'intradaymarketcap', // replaced per market in opScreen
   price: 'intradayprice',
   change: 'percentchange',
   pe: 'peratio.lasttwelvemonths',
@@ -599,8 +625,12 @@ async function opScreen(q: URLSearchParams) {
     operands.push({ operator: 'eq', operands: ['industry', industry] });
   }
   const filters: Json[] = Array.isArray(spec.filters) ? spec.filters.slice(0, 20) : [];
+  // Market value: for Indian listings the provider's intraday field has gaps but its last-close field is complete.
+  // For US and UK listings the last-close field is in each company's home currency, so the intraday field is used.
+  const capField = market.region === 'in' ? 'lastclosemarketcap.lasttwelvemonths' : 'intradaymarketcap';
+  const fieldOf = (key: unknown): string | undefined => (key === 'marketCap' ? capField : SCREEN_FIELDS[String(key)]);
   for (const f of filters) {
-    const field = SCREEN_FIELDS[String(f.field)];
+    const field = fieldOf(f.field);
     if (!field) throw new ApiError(400, `Unknown filter: ${String(f.field).slice(0, 40)}`);
     const min = num(f.min);
     const max = num(f.max);
@@ -610,7 +640,7 @@ async function opScreen(q: URLSearchParams) {
     } else if (min !== null) operands.push({ operator: 'gt', operands: [field, min] });
     else if (max !== null) operands.push({ operator: 'lt', operands: [field, max] });
   }
-  const sortField = SCREEN_FIELDS[String(spec.sort)] ?? 'intradaymarketcap';
+  const sortField = fieldOf(spec.sort) ?? capField;
   const size = Math.min(Math.max(Number(spec.size) || 50, 1), 100);
   const offset = Math.min(Math.max(Number(spec.offset) || 0, 0), 5000);
   const json = await yahoo(`/v1/finance/screener?lang=en-US&region=US&formatted=false&corsDomain=finance.yahoo.com`, {
@@ -628,10 +658,9 @@ async function opScreen(q: URLSearchParams) {
   });
   const res = json?.finance?.result?.[0];
   if (!res) throw new ApiError(502, json?.finance?.error?.description ?? 'The screener returned no result.');
-  return {
-    maxAge: 600,
-    body: { total: num(res.total) ?? 0, offset, quotes: (res.quotes ?? []).map(normaliseQuote), asOf: Date.now() },
-  };
+  const quotes: Json[] = (res.quotes ?? []).map(normaliseQuote);
+  await fillMarketCaps(quotes);
+  return { maxAge: 600, body: { total: num(res.total) ?? 0, offset, quotes, asOf: Date.now() } };
 }
 
 /* ---------- router ---------- */
