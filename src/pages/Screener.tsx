@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Page } from '../components/Page';
-import { Card, Empty, ErrorNote, Loading, Note, Seg, Source, Tip } from '../components/ui';
+import { Card, CellInput, Empty, ErrorNote, Loading, Note, Seg, Source, Tip } from '../components/ui';
 import { getFundamentals, screen, type Fundamentals, type ScreenSpec } from '../lib/data/api';
 import { shortSymbol } from '../lib/data/symbols';
 import { download, toCsv } from '../lib/csv';
@@ -166,9 +166,9 @@ export default function Screener() {
                       {u ? ` (${u})` : ''} <Tip text={d.tip} />
                     </span>
                     <div className="row" style={{ flexWrap: 'nowrap' }}>
-                      <input className="input num" inputMode="decimal" placeholder="at least" aria-label={`${d.label}, minimum`} value={row.min ?? ''} onChange={(e) => setFilter(i, { min: e.target.value === '' ? null : Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : row.min })} />
+                      <CellInput className="input num" placeholder="at least" label={`${d.label}, minimum`} value={row.min} allowEmpty onChange={(n) => setFilter(i, { min: n })} />
                       <span className="muted small">to</span>
-                      <input className="input num" inputMode="decimal" placeholder="at most" aria-label={`${d.label}, maximum`} value={row.max ?? ''} onChange={(e) => setFilter(i, { max: e.target.value === '' ? null : Number.isFinite(Number(e.target.value)) ? Number(e.target.value) : row.max })} />
+                      <CellInput className="input num" placeholder="at most" label={`${d.label}, maximum`} value={row.max} allowEmpty onChange={(n) => setFilter(i, { max: n })} />
                       <button className="btn icon ghost" aria-label={`Remove the ${d.label} filter`} onClick={() => set({ filters: state.filters.filter((_, k) => k !== i) })}>
                         ×
                       </button>

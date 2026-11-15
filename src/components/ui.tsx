@@ -159,6 +159,68 @@ export function NumberField(p: NumberFieldProps) {
   );
 }
 
+/**
+ * Compact numeric input for table cells and filter rows. Keeps what the user is typing
+ * (so "0." or "-" are not swallowed) and reports a number only when the text is a valid one.
+ */
+export function CellInput({
+  value,
+  onChange,
+  label,
+  scale = 1,
+  allowEmpty,
+  placeholder,
+  className = 'cell',
+  min,
+  max,
+  width,
+}: {
+  value: number | null | undefined;
+  onChange: (v: number | null) => void;
+  label: string;
+  scale?: number;
+  allowEmpty?: boolean;
+  placeholder?: string;
+  className?: string;
+  min?: number;
+  max?: number;
+  width?: number;
+}) {
+  const show = (v: number | null | undefined) => (typeof v === 'number' && Number.isFinite(v) ? String(Number((v * scale).toFixed(6))) : '');
+  const [text, setText] = useState(show(value));
+  const [focused, setFocused] = useState(false);
+  useEffect(() => {
+    if (!focused) setText(show(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, focused]);
+  return (
+    <input
+      className={className}
+      style={width ? { width } : undefined}
+      inputMode="decimal"
+      autoComplete="off"
+      aria-label={label}
+      placeholder={placeholder}
+      value={text}
+      onFocus={() => setFocused(true)}
+      onBlur={() => setFocused(false)}
+      onChange={(e) => {
+        const t = e.target.value;
+        setText(t);
+        if (t.trim() === '') {
+          if (allowEmpty) onChange(null);
+          return;
+        }
+        const n = parseNum(t);
+        if (!Number.isFinite(n)) return;
+        const v = n / scale;
+        if ((min !== undefined && v < min - 1e-12) || (max !== undefined && v > max + 1e-12)) return;
+        onChange(v);
+      }}
+    />
+  );
+}
+
 export const PercentField = (p: Omit<NumberFieldProps, 'scale' | 'suffix'>) => <NumberField {...p} scale={100} suffix="%" />;
 
 export const MoneyField = (p: Omit<NumberFieldProps, 'prefix' | 'grouping'> & { currency?: string }) => (

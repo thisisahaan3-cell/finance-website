@@ -343,6 +343,27 @@ async function fetchSummary(symbol: string, modules: string): Promise<Json> {
   return res;
 }
 
+/** Latest reported share count, used to work out market value when the provider omits it. */
+async function latestShares(symbol: string): Promise<number | null> {
+  try {
+    const now = Math.floor(Date.now() / 1000);
+    const json = await yahoo(
+      `/ws/fundamentals-timeseries/v1/finance/timeseries/${encodeURIComponent(symbol)}?symbol=${encodeURIComponent(symbol)}&type=quarterlyOrdinarySharesNumber,annualOrdinarySharesNumber&period1=${now - 3 * 366 * 86400}&period2=${now + 86400}&merge=false`,
+    );
+    let best: { date: string; value: number } | null = null;
+    for (const r of json?.timeseries?.result ?? []) {
+      const type: string | undefined = r?.meta?.type?.[0];
+      for (const row of (type ? r[type] : null) ?? []) {
+        const value = raw(row?.reportedValue);
+        if (value && value > 0 && row.asOfDate && (!best || row.asOfDate > best.date)) best = { date: row.asOfDate, value };
+      }
+    }
+    return best ? best.value : null;
+  } catch {
+    return null;
+  }
+}
+
 async function opSummary(q: URLSearchParams) {
   const symbol = symbolOf(q.get('symbol'));
   const res = await fetchSummary(symbol, 'price,assetProfile,summaryDetail,defaultKeyStatistics,financialData,calendarEvents');
@@ -356,6 +377,14 @@ async function opSummary(q: URLSearchParams) {
     for (const m of [price, detail, fin]) for (const k of SUMMARY_PRICE_KEYS) if (typeof m[k] === 'number') m[k] = m[k] / div;
   }
   price.currency = currency;
+  if (!num(price.marketCap) && !num(detail.marketCap) && price.quoteType === 'EQUITY' && num(price.regularMarketPrice)) {
+    const shares = num(stats.sharesOutstanding) ?? num(stats.impliedSharesOutstanding) ?? (await latestShares(symbol));
+    if (shares) {
+      price.marketCap = shares * price.regularMarketPrice;
+      price.marketCapDerived = true; // shares in issue × price, because the provider sent no figure
+      stats.sharesOutstanding ??= shares;
+    }
+  }
   const earningsDate = res.calendarEvents?.earnings?.earningsDate?.[0];
   return {
     maxAge: 1800,
@@ -383,6 +412,12 @@ async function opFundamentals(q: URLSearchParams) {
         const stats = flatten(res.defaultKeyStatistics);
         const detail = flatten(res.summaryDetail);
         const profile = flatten(res.assetProfile);
+        const unit = minorUnit(price.currency);
+        let marketCap = num(price.marketCap) ?? num(detail.marketCap);
+        if (!marketCap && num(price.regularMarketPrice)) {
+          const shares = num(stats.sharesOutstanding) ?? num(stats.impliedSharesOutstanding) ?? (await latestShares(symbol));
+          if (shares) marketCap = (shares * price.regularMarketPrice) / unit.div;
+        }
         return {
           symbol,
           ok: true,
@@ -406,9 +441,9 @@ async function opFundamentals(q: URLSearchParams) {
           beta: num(detail.beta) ?? num(stats.beta),
           payoutRatio: num(detail.payoutRatio),
           dividendYield: num(detail.dividendYield),
-          marketCap: num(price.marketCap) ?? num(detail.marketCap),
+          marketCap,
           name: price.longName ?? price.shortName ?? null,
-          currency: price.currency ?? null,
+          currency: unit.currency,
           trailingPE: num(detail.trailingPE),
           priceToBook: num(stats.priceToBook),
           priceToSales: num(detail.priceToSalesTrailing12Months),

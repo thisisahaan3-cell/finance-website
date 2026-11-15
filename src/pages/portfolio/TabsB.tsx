@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BarList, seriesColor } from '../../components/charts';
-import { Card, Check, Empty, KV, Loading, MoneyField, Note, Seg, Stat, Stats } from '../../components/ui';
+import { Card, CellInput, Check, Empty, KV, Loading, MoneyField, Note, Seg, Stat, Stats } from '../../components/ui';
 import { capBucket, shortSymbol } from '../../lib/data/symbols';
 import { concentration, groupWeights, rebalance, type Trade } from '../../lib/finance/portfolio';
 import { money, num, pct, signedPct } from '../../lib/format';
@@ -133,17 +133,14 @@ export function AllocationTab({ p, live, loading, setTab }: TabProps) {
                       <td>{shortSymbol(x.symbol)}</td>
                       <td className="r">{num(now, 1)}%</td>
                       <td className="r">
-                        <input
-                          className="cell"
-                          inputMode="decimal"
-                          aria-label={`Target weight for ${x.symbol}`}
-                          value={target ?? ''}
+                        <CellInput
+                          label={`Target weight for ${x.symbol}`}
+                          value={target ?? null}
                           placeholder="—"
-                          onChange={(e) => {
-                            const n = Number(e.target.value);
-                            if (e.target.value === '') patchPortfolio(p.id, (y) => { const t = { ...y.targets }; delete t[x.symbol]; return { ...y, targets: t }; });
-                            else if (Number.isFinite(n) && n >= 0 && n <= 100) setTarget(x.symbol, n);
-                          }}
+                          allowEmpty
+                          min={0}
+                          max={100}
+                          onChange={(n) => (n === null ? patchPortfolio(p.id, (y) => { const t = { ...y.targets }; delete t[x.symbol]; return { ...y, targets: t }; }) : setTarget(x.symbol, n))}
                         />
                       </td>
                       <td className={'r ' + (gap === null ? '' : Math.abs(gap) < 1 ? 'muted' : gap > 0 ? 'neg' : 'pos')}>{gap === null ? '—' : `${gap > 0 ? '+' : ''}${num(gap, 1)} pts`}</td>
@@ -154,17 +151,7 @@ export function AllocationTab({ p, live, loading, setTab }: TabProps) {
                   <td>Cash</td>
                   <td className="r">{num(v.total > 0 ? (v.cash / v.total) * 100 : 0, 1)}%</td>
                   <td className="r">
-                    <input
-                      className="cell"
-                      inputMode="decimal"
-                      aria-label="Target weight for cash"
-                      value={p.cashTarget || ''}
-                      placeholder="0"
-                      onChange={(e) => {
-                        const n = Number(e.target.value || 0);
-                        if (Number.isFinite(n) && n >= 0 && n <= 100) patchPortfolio(p.id, (y) => ({ ...y, cashTarget: n }));
-                      }}
-                    />
+                    <CellInput label="Target weight for cash" value={p.cashTarget || null} placeholder="0" allowEmpty min={0} max={100} onChange={(n) => patchPortfolio(p.id, (y) => ({ ...y, cashTarget: n ?? 0 }))} />
                   </td>
                   <td />
                 </tr>

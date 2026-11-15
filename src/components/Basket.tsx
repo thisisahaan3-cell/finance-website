@@ -5,7 +5,7 @@ import { num } from '../lib/format';
 import { loadLive } from '../lib/portfolioData';
 import { getState, rememberMeta, useSaved, useStore } from '../lib/store';
 import { TickerSearch } from './TickerSearch';
-import { Note } from './ui';
+import { CellInput, Note } from './ui';
 
 export interface BasketItem {
   symbol: string;
@@ -97,18 +97,7 @@ export function BasketPicker({ items, onChange, onLoadPortfolio, seeding, seedEr
                   </td>
                   {!noWeights && (
                     <td className="r" style={{ width: 96 }}>
-                      <input
-                        className="cell"
-                        style={{ width: 62 }}
-                        inputMode="decimal"
-                        aria-label={`Weight of ${it.symbol} in percent`}
-                        value={Number.isFinite(it.weight) ? it.weight : ''}
-                        onChange={(e) => {
-                          const n = e.target.value === '' ? 0 : Number(e.target.value);
-                          if (Number.isFinite(n) && n >= 0 && n <= 100) onChange(items.map((x) => (x.symbol === it.symbol ? { ...x, weight: n } : x)));
-                        }}
-                      />{' '}
-                      %
+                      <CellInput width={62} min={0} max={100} label={`Weight of ${it.symbol} in percent`} value={it.weight} allowEmpty onChange={(n) => onChange(items.map((x) => (x.symbol === it.symbol ? { ...x, weight: n ?? 0 } : x)))} /> %
                     </td>
                   )}
                   <td className="r" style={{ width: 34 }}>
